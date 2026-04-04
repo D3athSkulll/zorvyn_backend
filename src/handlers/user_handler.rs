@@ -1,5 +1,5 @@
 use axum::{
-    extract::{State, Json},
+    extract::{State, Json, Extension, Request},
     http::StatusCode,
 };
 
@@ -14,7 +14,10 @@ use crate::{
             hash_password,
             verify_password,
         },
-        jwt::generate_token,
+        jwt::{
+            generate_token,
+            Claims,
+        },
     },
 };
 
@@ -81,4 +84,15 @@ pub async fn login_user(
         "token": token
     })))
 
+}
+
+pub async fn protected_route(
+    req: Request,
+) -> Result<String, StatusCode> {
+    let claims = req
+        .extensions()
+        .get::<Claims>()
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    
+    Ok(format!("Hello user {}", claims.email))
 }
