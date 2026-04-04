@@ -96,3 +96,7 @@ pub async fn protected_route(
     
     Ok(format!("Hello user {}", claims.email))
 }
+
+pub async fn admin_only() -> &'static str {
+    "Welcome Admin !!"
+}
