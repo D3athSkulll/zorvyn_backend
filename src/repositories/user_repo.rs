@@ -24,3 +24,17 @@ pub async fn create_user(
 
     Ok(user)
 }
+
+pub async fn find_user_by_email(
+    pool: &PgPool,
+    email: &str,
+) -> Result<User, sqlx::Error>{
+    let user = sqlx::query_as::<_, User>(
+        "SELECT * FROM users WHERE email = $1"
+    )
+    .bind(email)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(user)
+}

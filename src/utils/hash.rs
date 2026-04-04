@@ -1,5 +1,5 @@
 use argon2::{
-    password_hash::{SaltString, PasswordHasher},
+    password_hash::{SaltString, PasswordHasher, PasswordHash, PasswordVerifier},
     Argon2
 };
 
@@ -16,4 +16,12 @@ pub fn hash_password(password: &str) -> String {
         .to_string();
 
     hash
+}
+
+pub fn verify_password(hash: &str, password: &str)-> bool{
+    let parsed_hash = PasswordHash::new(hash).unwrap();
+
+    Argon2::default()
+        .verify_password(password.as_bytes(), &parsed_hash)
+        .is_ok()
 }
