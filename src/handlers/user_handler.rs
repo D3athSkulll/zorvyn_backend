@@ -2,27 +2,41 @@ use axum::{
     extract::{State, Json},
     http::StatusCode,
 };
+
+use serde_json::json;
+
 use crate::{
     config::state::AppState,
     dto::user_dto::CreateUserRequest,
     repositories::user_repo::create_user,
+    utils::hash::hash_password,
 };
 
 pub async fn register_user(
     State(state): State<AppState>,
     Json(payload): Json<CreateUserRequest>,
-) -> Result<String, (StatusCode, String)> {
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    
+    let hashed_password = hash_password(&payload.password);
+
     let result = create_user(
         &state.db,
         &payload.name,
         &payload.email,
-        &payload.password, // not hashed
+        &hashed_password, // not hashed
         &payload.role,
     )
     .await;
     
     match result {
-        Ok(user) => Ok(format!("User created: {}", user.id)),
+        Ok(user) => Ok(Json(json!({
+            "success": true,
+            "data": {
+                "id": user.id,
+                "email": user.email,
+                "role": user.role
+            }
+        }))),
 
         Err(e) => {
             if let sqlx::Error::Database(db_err) = &e {

@@ -6,6 +6,7 @@ mod models;
 mod routes;
 mod handlers;
 mod dto;
+mod utils;
 
 use config::db::connect_db;
 use config::state::AppState;
