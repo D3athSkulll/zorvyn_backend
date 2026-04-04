@@ -3,10 +3,14 @@ use axum ::{routing::get, Router, extract::State};
 mod config;
 mod repositories;
 mod models;
+mod routes;
+mod handlers;
+mod dto;
 
 use config::db::connect_db;
 use config::state::AppState;
 use repositories::user_repo::create_user;
+use routes::user_routes::user_routes;
 
 #[tokio::main]
 async fn main(){
@@ -16,7 +20,7 @@ async fn main(){
     let state = AppState { db: pool };
 
     let app = Router::new()
-        .route("/", get(root))
+        .merge(user_routes())
         .with_state(state.clone());
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
