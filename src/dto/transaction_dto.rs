@@ -7,3 +7,11 @@ pub struct CreateTransactionRequest{
     pub category: String,
     pub description: Option<String>,
 }
+
+#[derive(Deserialize)]
+pub struct TransactionQuery {
+    pub r#type: Option<String>,
+    pub category: Option<String>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+}

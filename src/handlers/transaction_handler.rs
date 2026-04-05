@@ -1,12 +1,13 @@
 use axum::{
-    extract::{State, Json, Extension},
+    extract::{State, Json, Extension, Query},
     http::StatusCode,
 };
 use uuid::Uuid;
+use sqlx::QueryBuilder;
 
 use crate::{
     config::state::AppState,
-    dto::transaction_dto::CreateTransactionRequest,
+    dto::transaction_dto::{CreateTransactionRequest, TransactionQuery},
     models::transaction::Transaction,
     repositories::transaction_repo::create_transaction,
     utils::jwt::Claims,
@@ -63,16 +64,43 @@ pub async fn create_tx(
 pub async fn get_transactions(
     State(state): State<AppState>,
     Extension(claims): Extension<Claims>,
+    Query(params): Query<TransactionQuery>,
 )-> Json<serde_json::Value>{
     let user_id: Uuid = claims.sub.parse().unwrap();
 
-    let txs = sqlx::query_as::<_, Transaction>(
-        "SELECT * FROM transactions WHERE user_id = $1 ORDER BY created_at DESC"
-    )
-    .bind(user_id)
-    .fetch_all(&state.db)
-    .await
-    .unwrap();
+    let mut qb = QueryBuilder::new(
+        "SELECT * FROM transactions WHERE user_id = "
+    );
+
+    qb.push_bind(user_id);
+
+    if let Some(ref tx_type) = params.r#type {
+        qb.push(" AND type = ");
+        qb.push_bind(tx_type);
+    }
+
+    if let Some(ref category) = params.category {
+        qb.push(" AND category = ");
+        qb.push_bind(category);
+    }
+
+    if let Some(start_date) = params.start_date {
+        qb.push(" AND created_at >= ");
+        qb.push_bind(start_date);
+    }
+
+    if let Some(end_date) = params.end_date {
+        qb.push(" AND created_at <= ");
+        qb.push_bind(end_date);
+    }
+
+    qb.push(" ORDER BY created_at DESC");
+
+    let txs = qb
+        .build_query_as::<Transaction>()
+        .fetch_all(&state.db)
+        .await
+        .unwrap();
 
     Json(json!({
         "success": true,
