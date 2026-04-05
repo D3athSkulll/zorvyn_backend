@@ -5,23 +5,22 @@ use axum::{
 };
 use crate::{
     config::state::AppState,
-    utils::jwt::Claims,
-    utils::response::{error,success,success_with_message}
+    utils::{app_error::AppError, jwt::Claims, response::{error,success,success_with_message}}
 };
-use serde_json::json;
+use serde_json::{json,Value};
 use uuid::Uuid;
 
 pub async fn get_dashboard(
     State(state): State<AppState>,
     Extension(claims): Extension<Claims>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)>  {
+) -> Result<Json<Value>, AppError>  {
 
     let user_id = match claims.sub.parse::<Uuid>() {
         Ok(id) => id,
-        Err(_) => return Err((
-            StatusCode::UNAUTHORIZED,
-            error("Invalid token").to_string()
-        )),
+        Err(_) => return Err(AppError{
+            status: StatusCode::UNAUTHORIZED,
+            message: "Invalid token".to_string()
+        }),
     };
 
     let result = async {
@@ -84,10 +83,10 @@ pub async fn get_dashboard(
         Err(e)=>{
             println!("DB error (get_dashboard): {:?}", e);
 
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                error("Failed to fetch dashboard data").to_string()
-            ))
+            Err(AppError{
+                status: StatusCode::INTERNAL_SERVER_ERROR,
+                message: "Failed to fetch dashboard data".to_string()
+            })
         }
     }
 }

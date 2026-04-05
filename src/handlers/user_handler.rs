@@ -3,7 +3,7 @@ use axum::{
     http::StatusCode,
 };
 
-use serde_json::json;
+use serde_json::{json,Value};
 
 use crate::{
     config::state::AppState,
@@ -19,13 +19,14 @@ use crate::{
             Claims,
         },
         response::{error,success, success_with_message},
+        app_error::AppError,
     },
 };
 
 pub async fn register_user(
     State(state): State<AppState>,
     Json(payload): Json<CreateUserRequest>,
-) ->Result<Json<serde_json::Value>,(StatusCode,String)> {
+) ->Result<Json<Value>,AppError> {
     
     let hashed_password = hash_password(&payload.password);
 
@@ -48,17 +49,17 @@ pub async fn register_user(
         Err(e) => {
             if let sqlx::Error::Database(db_err) = &e {
                 if db_err.constraint() == Some("users_email_key") {
-                    return Err((
-                        StatusCode::BAD_REQUEST,
-                        error("Email already exists").to_string()
-                    ));
+                    return Err(AppError{
+                        status: StatusCode::BAD_REQUEST,
+                        message: "Email already exists".to_string(),
+                    });
                 }
             }
 
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                error("Something went wrong").to_string()
-            ))
+            Err(AppError{
+                status: StatusCode::INTERNAL_SERVER_ERROR,
+                message: "Something went wrong".to_string()
+            })
         }
     }
 }
@@ -66,25 +67,25 @@ pub async fn register_user(
 pub async fn login_user(
     State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<Value>, AppError> {
 
     let user = match find_user_by_email(&state.db, &payload.email).await{
         Ok(u)=>u,
         Err(_)=>{
-            return Err((
-                StatusCode::UNAUTHORIZED,
-                error("Invalid credentials").to_string()
-            ))
+            return Err(AppError{
+                status: StatusCode::UNAUTHORIZED,
+                message: "Invalid credentials".to_string()
+            })
         }
     };
 
     let is_valid = verify_password(&user.password_hash, &payload.password);
 
     if !is_valid{
-        return Err((
-            StatusCode::UNAUTHORIZED,
-            error("Invalid credentials").to_string()
-        ))
+        return Err(AppError{
+            status: StatusCode::UNAUTHORIZED,
+            message: "Invalid credentials".to_string(),
+        })
     };
 
     let token = generate_token(&user.id.to_string(), &user.email, &user.role);
