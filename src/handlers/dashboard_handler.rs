@@ -6,6 +6,7 @@ use axum::{
 use crate::{
     config::state::AppState,
     utils::jwt::Claims,
+    utils::response::{error,success,success_with_message}
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -17,7 +18,10 @@ pub async fn get_dashboard(
 
     let user_id = match claims.sub.parse::<Uuid>() {
         Ok(id) => id,
-        Err(_) => return Err((StatusCode::UNAUTHORIZED, "Invalid token".to_string())),
+        Err(_) => return Err((
+            StatusCode::UNAUTHORIZED,
+            error("Invalid token").to_string()
+        )),
     };
 
     let result = async {
@@ -70,20 +74,20 @@ pub async fn get_dashboard(
     .await;
 
     match result {
-        Ok((income, expense, net_balance, categories))=> Ok(Json(json!({
-            "success": true,
-            "data": {
-                "total_income": income,
-                "total_expense": expense,
-                "net_balance": net_balance,
-                "categories": categories
-            }
-        }))),
+        Ok((income, expense, net_balance, categories))=> Ok(Json(success(json!({
+            "total_income": income,
+            "total_expense": expense,
+            "net_balance": net_balance,
+            "categories": categories    
+        })))),
 
         Err(e)=>{
             println!("DB error (get_dashboard): {:?}", e);
 
-            Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch dashboard data".to_string()))
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                error("Failed to fetch dashboard data").to_string()
+            ))
         }
     }
 }

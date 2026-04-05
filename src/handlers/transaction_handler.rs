@@ -11,6 +11,7 @@ use crate::{
     models::transaction::Transaction,
     repositories::transaction_repo::create_transaction,
     utils::jwt::Claims,
+    utils::response::{error,success,success_with_message}
 };
 
 use serde_json::json;
@@ -23,7 +24,10 @@ pub async fn create_tx(
 
     let user_id = match claims.sub.parse::<Uuid>(){
         Ok(id)=>id,
-        Err(_) => return Err((StatusCode::UNAUTHORIZED, "Invalid token".to_string())),
+        Err(_) => return Err((
+            StatusCode::UNAUTHORIZED,
+            error("Invalid token").to_string()
+        )),
     };
 
     let result = create_transaction(
@@ -37,26 +41,24 @@ pub async fn create_tx(
     .await;
 
     match result{
-        Ok(transaction)=>Ok(Json(json!({
-        "success": true,
-        "data": {
-            "id":transaction.id,
-            "amount": transaction.amount,
-            "user_id": transaction.user_id,
-            "category": transaction.category,
-        },
-    })))    ,
+        Ok(tx)=>Ok(Json(success(json!(tx)))),
 
         Err(e) => {
             println!("DB error: {:?}", e);
 
             if let sqlx::Error::Database(db_err) = &e {
                 if db_err.code() == Some("23503".into()) {
-                    return Err((StatusCode::BAD_REQUEST, "Invalid user".to_string()));
+                    return Err((
+                        StatusCode::BAD_REQUEST,
+                        error("Invalid user").to_string()
+                    ));
                 }
             }
 
-            Err((StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong".to_string()))
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                error("Something went wrong").to_string()
+            ))
         }
 }
 }
@@ -68,9 +70,12 @@ pub async fn get_transactions(
 )-> Result<Json<serde_json::Value>, (StatusCode, String)>{
     let user_id = match claims.sub.parse::<Uuid>(){
         Ok(id)=>id,
-        Err(_) => return Err((StatusCode::UNAUTHORIZED, "Invalid token".to_string())),
+        Err(_) => return Err((
+            StatusCode::UNAUTHORIZED,
+            error("Invalid token").to_string()
+        )),
     };
-    
+
     let mut qb = QueryBuilder::new(
         "SELECT * FROM transactions WHERE user_id = "
     );
@@ -79,7 +84,10 @@ pub async fn get_transactions(
 
     if let Some(ref tx_type) = params.r#type {
         if tx_type != "income" && tx_type != "expense" {
-            return Err((StatusCode::BAD_REQUEST, "Invalid transaction type".to_string()));
+            return Err((
+                StatusCode::BAD_REQUEST,
+                error("Invalid transaction type").to_string()
+            ));
         }
         qb.push(" AND type = ");
         qb.push_bind(tx_type);
@@ -108,15 +116,15 @@ pub async fn get_transactions(
         .await;
 
     match result{
-        Ok(txs)=>Ok(Json(json!({
-        "success": true,
-        "data": txs
-    }))),
+        Ok(txs)=>Ok(Json(success(json!(txs)))),
 
-    Err(e)=>{
-        println!("DB error: {:?}", e);
-        Err((StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong".to_string()))
-    }
+        Err(e)=>{
+            println!("DB error: {:?}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Something went wrong".to_string()
+            ))
+        }
 
     }
 }
