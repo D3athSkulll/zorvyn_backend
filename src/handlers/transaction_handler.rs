@@ -65,9 +65,12 @@ pub async fn get_transactions(
     State(state): State<AppState>,
     Extension(claims): Extension<Claims>,
     Query(params): Query<TransactionQuery>,
-)-> Json<serde_json::Value>{
-    let user_id: Uuid = claims.sub.parse().unwrap();
-
+)-> Result<Json<serde_json::Value>, (StatusCode, String)>{
+    let user_id = match claims.sub.parse::<Uuid>(){
+        Ok(id)=>id,
+        Err(_) => return Err((StatusCode::UNAUTHORIZED, "Invalid token".to_string())),
+    };
+    
     let mut qb = QueryBuilder::new(
         "SELECT * FROM transactions WHERE user_id = "
     );
@@ -75,6 +78,9 @@ pub async fn get_transactions(
     qb.push_bind(user_id);
 
     if let Some(ref tx_type) = params.r#type {
+        if tx_type != "income" && tx_type != "expense" {
+            return Err((StatusCode::BAD_REQUEST, "Invalid transaction type".to_string()));
+        }
         qb.push(" AND type = ");
         qb.push_bind(tx_type);
     }
@@ -96,14 +102,21 @@ pub async fn get_transactions(
 
     qb.push(" ORDER BY created_at DESC");
 
-    let txs = qb
+    let result = qb
         .build_query_as::<Transaction>()
         .fetch_all(&state.db)
-        .await
-        .unwrap();
+        .await;
 
-    Json(json!({
+    match result{
+        Ok(txs)=>Ok(Json(json!({
         "success": true,
         "data": txs
-    }))
+    }))),
+
+    Err(e)=>{
+        println!("DB error: {:?}", e);
+        Err((StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong".to_string()))
+    }
+
+    }
 }
