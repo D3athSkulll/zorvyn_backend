@@ -1,6 +1,7 @@
 use axum::{
     extract::{State, Extension},
     Json,
+    http::StatusCode,
 };
 use crate::{
     config::state::AppState,
@@ -12,64 +13,77 @@ use uuid::Uuid;
 pub async fn get_dashboard(
     State(state): State<AppState>,
     Extension(claims): Extension<Claims>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, (StatusCode, String)>  {
 
-    let user_id: Uuid = claims.sub.parse().unwrap();
+    let user_id = match claims.sub.parse::<Uuid>() {
+        Ok(id) => id,
+        Err(_) => return Err((StatusCode::UNAUTHORIZED, "Invalid token".to_string())),
+    };
 
-    // total income
-    let total_income: (Option<f64>,) = sqlx::query_as(
+    let result = async {
+        // total income
+        let total_income: (Option<f64>,) = sqlx::query_as(
         "SELECT SUM(amount) FROM transactions WHERE user_id = $1 AND type = 'income'"
-    )
-    .bind(user_id)
-    .fetch_one(&state.db)
-    .await
-    .unwrap();
+        )
+        .bind(user_id)
+        .fetch_one(&state.db)
+        .await?;
 
-    // total expense
-    let total_expense: (Option<f64>,) = sqlx::query_as(
-        "SELECT SUM(amount) FROM transactions WHERE user_id = $1 AND type = 'expense'"
-    )
-    .bind(user_id)
-    .fetch_one(&state.db)
-    .await
-    .unwrap();
+        // total expense
+        let total_expense: (Option<f64>,) = sqlx::query_as(
+            "SELECT SUM(amount) FROM transactions WHERE user_id = $1 AND type = 'expense'"
+        )
+        .bind(user_id)
+        .fetch_one(&state.db)
+        .await?;
 
-    let income = total_income.0.unwrap_or(0.0);
-    let expense = total_expense.0.unwrap_or(0.0);
+        let income = total_income.0.unwrap_or(0.0);
+        let expense = total_expense.0.unwrap_or(0.0);
+        let net_balance = income - expense;
 
-    let net_balance = income - expense;
+        // category-wise aggregation
+        let category_data = sqlx::query!(
+            r#"
+            SELECT category, SUM(amount) as total
+            FROM transactions
+            WHERE user_id = $1
+            GROUP BY category
+            "#,
+            user_id
+        )
+        .fetch_all(&state.db)
+        .await?;
 
-    // category-wise aggregation
-    let category_data = sqlx::query!(
-        r#"
-        SELECT category, SUM(amount) as total
-        FROM transactions
-        WHERE user_id = $1
-        GROUP BY category
-        "#,
-        user_id
-    )
-    .fetch_all(&state.db)
-    .await
-    .unwrap();
-
-    let categories: Vec<_> = category_data
-    .into_iter()
-    .map(|row| {
-        json!({
-            "category": row.category,
-            "total": row.total.unwrap_or(0.0)
+        let categories: Vec<_> = category_data
+        .into_iter()
+        .map(|row| {
+            json!({
+                "category": row.category,
+                "total": row.total.unwrap_or(0.0)
+            })
         })
-    })
-    .collect();
+        .collect();
 
-    Json(json!({
-    "success": true,
-    "data": {
-        "total_income": income,
-        "total_expense": expense,
-        "net_balance": net_balance,
-        "categories": categories
+        Ok::<_, sqlx::Error>((income, expense, net_balance, categories))
+
     }
-    }))
+    .await;
+
+    match result {
+        Ok((income, expense, net_balance, categories))=> Ok(Json(json!({
+            "success": true,
+            "data": {
+                "total_income": income,
+                "total_expense": expense,
+                "net_balance": net_balance,
+                "categories": categories
+            }
+        }))),
+
+        Err(e)=>{
+            println!("DB error (get_dashboard): {:?}", e);
+
+            Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch dashboard data".to_string()))
+        }
+    }
 }
