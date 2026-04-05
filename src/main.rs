@@ -14,6 +14,7 @@ use config::state::AppState;
 use repositories::user_repo::create_user;
 use routes::user_routes::user_routes;
 use routes::transaction_routes::transaction_routes;
+use routes::dashboard_routes::dashboard_routes;
 
 #[tokio::main]
 async fn main(){
@@ -25,6 +26,7 @@ async fn main(){
     let app = Router::new()
         .merge(user_routes())
         .merge(transaction_routes())
+        .merge(dashboard_routes())
         .with_state(state.clone());
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
