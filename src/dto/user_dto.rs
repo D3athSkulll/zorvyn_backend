@@ -23,6 +23,12 @@ pub struct LoginRequest {
     pub password: String,
 }
 
+#[derive(Deserialize, Validate)]
+pub struct UpdateUserRoleRequest {
+    #[validate(custom(function = "validate_role"))]
+    pub role: String,
+}
+
 // custom validator
 fn validate_role(role: &str) -> Result<(), validator::ValidationError> {
     match role {

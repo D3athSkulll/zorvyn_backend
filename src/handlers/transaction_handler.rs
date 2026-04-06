@@ -20,7 +20,7 @@ use crate::{
     }
 };
 
-pub async fn create_tx(
+pub async fn create_tx_handler(
     State(state): State<AppState>,
     Extension(claims): Extension<Claims>,
     Json(payload): Json<CreateTransactionRequest>,
@@ -84,7 +84,7 @@ pub async fn create_tx(
 }
 
 
-pub async fn get_transactions(
+pub async fn get_tx_handler(
     State(state): State<AppState>,
     Extension(claims): Extension<Claims>,
     Query(params): Query<TransactionQuery>,
@@ -176,7 +176,7 @@ pub async fn get_transactions(
     }
 }
 
-pub async fn update_tx(
+pub async fn update_tx_handler(
     State(state): State<AppState>,
     Extension(claims): Extension<Claims>,
     Path(tx_id): Path<Uuid>,
@@ -235,7 +235,7 @@ pub async fn update_tx(
     }
 }
 
-pub async fn delete_tx(
+pub async fn delete_tx_handler(
     State(state): State<AppState>,
     Extension(claims): Extension<Claims>,
     Path(tx_id): Path<Uuid>,

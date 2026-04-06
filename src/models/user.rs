@@ -12,3 +12,12 @@ pub struct User{
     pub role: String,
     pub created_at: DateTime<Utc>
 }
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct PublicUser{
+    pub id: Uuid,
+    pub name: String,
+    pub email: String,
+    pub role: String,
+    pub created_at: DateTime<Utc>
+}

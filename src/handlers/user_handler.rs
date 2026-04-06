@@ -1,31 +1,27 @@
 use axum::{
-    extract::{State, Json, Request},
+    extract::{Json, Path, Request, State},
     http::StatusCode,
 };
 
+use uuid::Uuid;
 use serde_json::{json,Value};
 use validator::Validate;
 
 use crate::{
     config::state::AppState,
-    dto::user_dto::{CreateUserRequest, LoginRequest},
-    repositories::user_repo::{create_user, find_user_by_email},
+    dto::user_dto::{CreateUserRequest, LoginRequest, UpdateUserRoleRequest},
+    repositories::user_repo::{create_user, delete_user, find_user_by_email, get_all_users, update_user_role},
     utils::{
-        hash::{
+        app_error::AppError, hash::{
             hash_password,
             verify_password,
-        },
-        jwt::{
-            generate_token,
-            Claims,
-        },
-        response::{error,success, success_with_message},
-        app_error::AppError,
-        validation::format_validation_errors,
+        }, jwt::{
+            Claims, generate_token
+        }, response::{error,success, success_with_message}, validation::format_validation_errors
     },
 };
 
-pub async fn register_user(
+pub async fn create_user_handler(
     State(state): State<AppState>,
     Json(payload): Json<CreateUserRequest>,
 ) ->Result<Json<Value>,AppError> {
@@ -80,7 +76,7 @@ pub async fn register_user(
     }
 }
 
-pub async fn login_user(
+pub async fn login_user_handler(
     State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Json<Value>, AppError> {
@@ -118,7 +114,97 @@ pub async fn login_user(
 
 }
 
-pub async fn protected_route(
+pub async fn list_users_handler(
+    State(state): State<AppState>,
+)-> Result<Json<Value>, AppError>{
+
+    let result = get_all_users(&state.db)
+        .await;
+
+    match result{
+        Ok(users)=>Ok(Json(success(json!(users)))),
+        Err(e)=>Err(AppError{
+            status: StatusCode::INTERNAL_SERVER_ERROR,
+            body: json!({
+                "status": false,
+                "message": println!("{:?}",e),
+            })
+        })
+    }
+}
+
+pub async fn update_user_role_handler(
+    State(state): State<AppState>,
+    Path(user_id): Path<Uuid>,
+    Json(payload): Json<UpdateUserRoleRequest>,
+)-> Result<Json<Value>, AppError>{
+
+    payload.validate().map_err(|_| AppError{
+        status: StatusCode::BAD_REQUEST,
+        body: json!({
+            "success": false,
+            "message": "Invalid role"
+        })  
+    })?;
+
+    let result = update_user_role(&state.db, user_id, &payload.role)
+    .await;
+
+    match result{
+        Ok(user)=> Ok(Json(success(json!(user)))),
+        Err(e)=> if let sqlx::Error::RowNotFound = e {
+                Err(AppError {
+                    status: StatusCode::NOT_FOUND,
+                    body: json!({
+                        "success": false,
+                        "message": "User not found"
+                    }),
+                })
+            } else{
+                Err(AppError{
+                    status: StatusCode::INTERNAL_SERVER_ERROR,
+                    body: json!({
+                        "status": false,
+                        "message": "Failed to update role"
+                    })
+                })
+            }
+    }
+}
+
+pub async fn delete_user_handler(
+    State(state): State<AppState>,
+    Path(user_id): Path<Uuid>,
+)-> Result<Json<Value>, AppError>{
+    
+    let result = delete_user(&state.db, user_id)
+    .await;
+
+    match result{
+        Ok(_)=>Ok(Json(success(json!({
+            "message": "User Deleted Successfully"
+        })))),
+        Err(e)=> if let sqlx::Error::RowNotFound = e {
+                Err(AppError {
+                    status: StatusCode::NOT_FOUND,
+                    body: json!({
+                        "success": false,
+                        "message": "User not found"
+                    }),
+                })
+            } else{
+                Err(AppError{
+                    status: StatusCode::INTERNAL_SERVER_ERROR,
+                    body: json!({
+                        "status": false,
+                        "message": "Failed to delete user"
+                    })
+                })
+            }
+    }
+}
+
+pub async fn protected_route_handler(
     req: Request,
 ) -> Result<String, StatusCode> {
     let claims = req
@@ -132,3 +218,4 @@ pub async fn protected_route(
 pub async fn admin_only() -> &'static str {
     "Welcome Admin !!"
 }
+
