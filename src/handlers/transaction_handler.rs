@@ -5,13 +5,19 @@ use axum::{
 use uuid::Uuid;
 use sqlx::QueryBuilder;
 use serde_json::{json,Value};
+use validator::Validate;
 
 use crate::{
     config::state::AppState,
     dto::transaction_dto::{CreateTransactionRequest, TransactionQuery},
     models::transaction::Transaction,
     repositories::transaction_repo::create_transaction,
-    utils::{app_error::AppError, jwt::Claims, response::{error,success,success_with_message}}
+    utils::{
+        app_error::AppError,
+        jwt::Claims,
+        response::{error,success,success_with_message},
+        validation::format_validation_errors
+    }
 };
 
 pub async fn create_tx(
@@ -19,14 +25,24 @@ pub async fn create_tx(
     Extension(claims): Extension<Claims>,
     Json(payload): Json<CreateTransactionRequest>,
 )-> Result<Json<Value>, AppError>{
+    
+    if let Err(e) = payload.validate() {
+        return Err(AppError {
+            status: StatusCode::BAD_REQUEST,
+            body: format_validation_errors(e),
+        });
+    }
 
     let user_id = match claims.sub.parse::<Uuid>(){
         Ok(id)=>id,
         Err(_) => return Err(AppError{
             status: StatusCode::UNAUTHORIZED,
-            message: "Invalid token".to_string()
-        }),
-    };
+            body: json!({
+                    "success": false,
+                    "message": "Invalid Token"
+                }) 
+            }),
+        };
 
     let result = create_transaction(
         &state.db,
@@ -48,18 +64,25 @@ pub async fn create_tx(
                 if db_err.code() == Some("23503".into()) {
                     return Err(AppError{
                         status: StatusCode::BAD_REQUEST,
-                        message: "Invalid user".to_string()
+                        body: json!({
+                            "success": false,
+                            "message": e.to_string()
+                        })
                     });
                 }
             }
 
             Err(AppError{
                 status: StatusCode::INTERNAL_SERVER_ERROR,
-                message: "Something went wrong".to_string()
-            })
+                body: json!({
+                        "success": false,
+                        "message": "Invalid Token"
+                    }) 
+                })
         }
+    }
 }
-}
+
 
 pub async fn get_transactions(
     State(state): State<AppState>,
@@ -70,7 +93,10 @@ pub async fn get_transactions(
         Ok(id)=>id,
         Err(_) => return Err(AppError{
             status: StatusCode::UNAUTHORIZED,
-            message: "Invalid token".to_string()
+            body: json!({
+                    "success": false,
+                    "message": "Invalid Token"
+            }),
         }),
     };
 
@@ -84,7 +110,10 @@ pub async fn get_transactions(
         if tx_type != "income" && tx_type != "expense" {
             return Err(AppError{
                 status: StatusCode::BAD_REQUEST,
-                message: "Invalid transaction type".to_string()
+                body: json!({
+                    "success": false,
+                    "message": "Invalid Transaction Type"
+                })
             });
         }
         qb.push(" AND type = ");
@@ -120,7 +149,10 @@ pub async fn get_transactions(
             println!("DB error: {:?}", e);
             Err(AppError{
                 status: StatusCode::INTERNAL_SERVER_ERROR,
-                message: "Something went wrong".to_string(),
+                body: json!({
+                    "success": false,
+                    "message": "Something Went Wrong"
+                })
             })
         }
 

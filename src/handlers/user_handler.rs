@@ -4,6 +4,7 @@ use axum::{
 };
 
 use serde_json::{json,Value};
+use validator::Validate;
 
 use crate::{
     config::state::AppState,
@@ -20,6 +21,7 @@ use crate::{
         },
         response::{error,success, success_with_message},
         app_error::AppError,
+        validation::format_validation_errors,
     },
 };
 
@@ -27,6 +29,13 @@ pub async fn register_user(
     State(state): State<AppState>,
     Json(payload): Json<CreateUserRequest>,
 ) ->Result<Json<Value>,AppError> {
+
+    if let Err(e) = payload.validate() {
+        return Err(AppError {
+            status: StatusCode::BAD_REQUEST,
+            body: format_validation_errors(e),
+        });
+    }
     
     let hashed_password = hash_password(&payload.password);
 
@@ -38,6 +47,7 @@ pub async fn register_user(
         &payload.role,
     )
     .await;
+    
     
     match result {
         Ok(user) => Ok(Json(success(json!({
@@ -51,14 +61,20 @@ pub async fn register_user(
                 if db_err.constraint() == Some("users_email_key") {
                     return Err(AppError{
                         status: StatusCode::BAD_REQUEST,
-                        message: "Email already exists".to_string(),
+                        body: json!({
+                            "success": false,
+                            "message": "Email already exists"    
+                        })
                     });
                 }
             }
 
             Err(AppError{
                 status: StatusCode::INTERNAL_SERVER_ERROR,
-                message: "Something went wrong".to_string()
+                body: json!({
+                        "success": false,
+                        "message": "Something Went Wrong"    
+                })
             })
         }
     }
@@ -74,7 +90,10 @@ pub async fn login_user(
         Err(_)=>{
             return Err(AppError{
                 status: StatusCode::UNAUTHORIZED,
-                message: "Invalid credentials".to_string()
+                body: json!({
+                    "success": false,
+                    "message": "Invalid Credentials"    
+                })
             })
         }
     };
@@ -84,7 +103,10 @@ pub async fn login_user(
     if !is_valid{
         return Err(AppError{
             status: StatusCode::UNAUTHORIZED,
-            message: "Invalid credentials".to_string(),
+            body: json!({
+                    "success": false,
+                    "message": "Invalid Credentials"    
+            })
         })
     };
 

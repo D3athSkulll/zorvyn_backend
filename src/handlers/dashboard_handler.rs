@@ -19,7 +19,13 @@ pub async fn get_dashboard(
         Ok(id) => id,
         Err(_) => return Err(AppError{
             status: StatusCode::UNAUTHORIZED,
-            message: "Invalid token".to_string()
+            body: json!({
+                "success": false,
+                "body": json!({
+                    "success": false,
+                    "message": "Invalid Token"
+                }) 
+            })
         }),
     };
 
@@ -85,7 +91,11 @@ pub async fn get_dashboard(
 
             Err(AppError{
                 status: StatusCode::INTERNAL_SERVER_ERROR,
-                message: "Failed to fetch dashboard data".to_string()
+                body: json!({
+                    "success": false,
+                    "message": "Failed to fetch dashboard data".to_string()
+                })
+                    
             })
         }
     }
