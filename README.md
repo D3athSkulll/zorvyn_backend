@@ -88,11 +88,11 @@ Routes → Handlers → Repositories → Database
 
 ### Authorization (RBAC)
 
-| Role    | Access                 |
-| ------- | ---------------------- |
-| Viewer  | Read-only              |
-| Analyst | Read + Create + Update |
-| Admin   | Full access            |
+| Role    | Access                                |
+| ------- | --------------------------------------|
+| Viewer  | Read-only                             |
+| Analyst | Read + Create + Update + Delete (Own) |
+| Admin   | Full access                           |
 
 RBAC is enforced via **custom middleware**, not inside handlers.
 

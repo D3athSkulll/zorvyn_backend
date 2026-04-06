@@ -70,17 +70,29 @@ pub async fn delete_transaction(
     pool: &PgPool,
     tx_id: Uuid,
     user_id: Uuid,
+    role: &str,
 ) -> Result<Transaction, sqlx::Error> {
 
-    let tx = sqlx::query_as::<_, Transaction>(
+    let delete_query = if role == "admin"{
+        sqlx::query_as::<_, Transaction>(r#"
+        DELETE FROM transactions
+        WHERE id = $1
+        RETURNING *
+        "#)
+        .bind(tx_id)
+    }else{
+        //Analyst
+        sqlx::query_as::<_, Transaction>(
         r#"
         DELETE FROM transactions
         WHERE id = $1 AND user_id = $2
         RETURNING *
-        "#
-    )
-    .bind(tx_id)
-    .bind(user_id)
+        "#)
+        .bind(tx_id)
+        .bind(user_id)
+    };
+
+    let tx = delete_query
     .fetch_optional(pool)
     .await?;
 

@@ -241,7 +241,7 @@ pub async fn delete_tx_handler(
     Path(tx_id): Path<Uuid>,
 )-> Result<Json<Value>, AppError>{
 
-    if claims.role != "admin"{
+    if claims.role != "viewer"{
         return Err(AppError{
             status: StatusCode::FORBIDDEN,
             body: json!({
@@ -263,7 +263,8 @@ pub async fn delete_tx_handler(
     let result = delete_transaction(
         &state.db,
         tx_id,
-        user_id
+        user_id,
+        &claims.role,
     )
     .await;
 

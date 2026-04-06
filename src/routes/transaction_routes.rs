@@ -9,24 +9,20 @@ use crate::{
 };
 
 pub fn transaction_routes()-> Router<AppState>{
-    // Viewer (GET only)
-    let viewer_routes = Router::new()
+    // Public : Viewer (GET only)
+    let public_routes = Router::new()
         .route("/transactions", get(get_tx_handler))
         .layer(middleware::from_fn(require_roles(vec!["viewer", "analyst", "admin"])));
 
-    // Analyst (POST + PUT)
-    let analyst_routes = Router::new()
+    // Protected : Analyst (POST + PUT + Delete Own) + Admin (Delete Any)
+    let protected_routes = Router::new()
         .route("/transactions", post(create_tx_handler))
         .route("/transactions/{id}", put(update_tx_handler))
+        .route("/transactions/{id}", delete(delete_tx_handler))
         .layer(middleware::from_fn(require_roles(vec!["analyst", "admin"])));
 
-    // Admin (DELETE only)
-    let admin_routes = Router::new()
-        .route("/transactions/{id}", delete(delete_tx_handler))
-        .layer(middleware::from_fn(require_roles(vec!["admin"])));
 
-    viewer_routes
-        .merge(analyst_routes)
-        .merge(admin_routes)
+    public_routes
+        .merge(protected_routes)
         .layer(middleware::from_fn(auth_middleware))
 }
