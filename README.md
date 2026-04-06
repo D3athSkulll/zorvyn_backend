@@ -1,4 +1,4 @@
-#  Zorvyn Finance Backend
+# 💼 Zorvyn Finance Backend
 
 A role-based finance backend built using **Rust + Axum + PostgreSQL**, designed to demonstrate clean backend architecture, secure access control, and meaningful data processing.
 
@@ -6,7 +6,7 @@ This project focuses on **clarity, correctness, and real-world backend patterns*
 
 ---
 
-##  Problem Context
+## 🎯 Problem Context
 
 This backend was built for a **finance dashboard system** where:
 
@@ -26,9 +26,26 @@ The goal was to build a system that is:
 
 ---
 
-##  Tech Stack
 
-```toml
+## 📂 Project Structure
+
+```text id="7j7hzr"
+src/
+├── config/
+├── dto/
+├── handlers/
+├── middleware/
+├── models/
+├── repositories/
+├── routes/
+├── utils/
+```
+
+---
+
+## ⚙️ Tech Stack
+
+```toml id="gmbf6d"
 axum = "0.8.8"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
@@ -43,22 +60,11 @@ jsonwebtoken = "9"
 validator = { version = "0.18", features = ["derive"] }
 ```
 
-### Why these choices?
-
-* **Axum** → lightweight, type-safe routing
-* **SQLx** → compile-time checked queries (no ORM overhead)
-* **Argon2** → secure password hashing
-* **jsonwebtoken** → stateless auth
-* **validator** → declarative input validation
-* **chrono + uuid** → production-grade data types
-
 ---
 
-## Architecture Overview
+## 🧠 Architecture Overview
 
-The project follows a **layered architecture**:
-
-```text
+```text id="ztmru3"
 Routes → Handlers → Repositories → Database
            ↓
         Middleware (Auth + RBAC)
@@ -66,16 +72,9 @@ Routes → Handlers → Repositories → Database
            Utils (JWT, Hashing, Errors)
 ```
 
-### Key Design Decisions
-
-* **No heavy frameworks/ORMs** → full control over queries
-* **Separation of concerns** → handlers don’t contain DB logic
-* **Middleware-driven auth** → keeps business logic clean
-* **Consistent response format** → predictable API contract
-
 ---
 
-## Authentication & RBAC
+## 🔐 Authentication & RBAC
 
 ### Authentication
 
@@ -86,195 +85,202 @@ Routes → Handlers → Repositories → Database
   * `email`
   * `role`
 
-### Authorization (RBAC)
+---
 
-| Role    | Access                                |
-| ------- | --------------------------------------|
-| Viewer  | Read-only                             |
-| Analyst | Read + Create + Update + Delete (Own) |
-| Admin   | Full access                           |
-
-RBAC is enforced via **custom middleware**, not inside handlers.
+# 🔑 Role Capabilities
 
 ---
 
-## Transaction System
+## 👀 Viewer
 
-Each transaction includes:
+```text id="ah1j52"
+User API:
+✔ View own profile
 
-```text
+Transaction API:
+✔ View transactions
+❌ Cannot create/update/delete
+
+Dashboard API:
+✔ View dashboard
+```
+
+---
+
+## 📊 Analyst
+
+```text id="cifqkk"
+User API:
+✔ View own profile
+❌ Cannot manage users
+
+Transaction API:
+✔ Create transactions
+✔ Update own transactions
+✔ Delete own transactions
+✔ View transactions
+❌ Cannot modify others' data
+
+Dashboard API:
+✔ Full access
+```
+
+---
+
+## 👑 Admin
+
+```text id="9h4o3f"
+User API:
+✔ List users
+✔ Update roles
+✔ Delete users
+
+Transaction API:
+✔ Full CRUD
+✔ Can delete ANY transaction (override)
+
+Dashboard API:
+✔ Full access
+```
+
+---
+
+## 💰 Transaction System
+
+```text id="8n4i9l"
 amount | type | category | created_at | description | user_id
 ```
 
-### Supported Operations
-
-* Create transaction
-* Fetch transactions (with filters + pagination)
-* Update transaction (ownership enforced)
-* Delete transaction (RBAC enforced)
+* Ownership enforced at DB level
+* Admin override supported
+* QueryBuilder used for dynamic filtering
 
 ---
 
-## Filtering & Pagination
+## 🔍 Filtering & Pagination
 
-Supports dynamic filtering using **SQLx QueryBuilder**:
-
-```text
+```text id="m1r2q6"
 /type=income|expense
 /category=food
 /start_date=...
 /end_date=...
+/limit=10
+/offset=0
 ```
-
-Pagination:
-
-```text
-GET /transactions?limit=10&offset=0
-```
-
-This prevents large data fetches and improves performance.
 
 ---
 
-## Dashboard API
-
-The `/dashboard` endpoint provides:
-
-### Aggregations
+## 📊 Dashboard
 
 * Total income
 * Total expense
 * Net balance
-
-### Category Breakdown
-
-* Grouped totals per category
-
-### Recent Activity
-
-* Last 5 transactions
-
-### Monthly Trends
-
-* Aggregation using `DATE_TRUNC('month', created_at)`
+* Category-wise totals
+* Recent activity
+* Monthly trends
 
 ---
 
-## Admin User Management
-
-(Admin-only endpoints)
-
-* List all users
-* Update user role
-* Delete user
-
-Sensitive fields like `password_hash` are **never exposed**.
+# ⚙️ Setup & Run
 
 ---
 
-## Validation & Error Handling
+## 1️⃣ Clone Repository
 
-### Validation
-
-* Implemented using `validator`
-* Applied at request boundary (DTO layer)
-
-### Error Handling
-
-* Centralized using custom `AppError`
-* Consistent JSON responses:
-
-```json
-{
-  "success": false,
-  "message": "Error message"
-}
-```
-
-Validation errors return structured field-level feedback.
-
----
-
-## Security Considerations
-
-* Passwords hashed using **Argon2**
-* JWT secret stored in `.env`
-* User ownership enforced in queries:
-
-  ```sql
-  WHERE id = $1 AND user_id = $2
-  ```
-* RBAC enforced via middleware
-
----
-
-## Project Structure
-
-```text
-src/
-├── config/        # App state, DB config
-├── dto/           # Request/response structs
-├── handlers/      # Route handlers
-├── middleware/    # Auth + RBAC
-├── models/        # Models for User and Transaction
-├── repositories/  # DB queries
-├── routes/        # Route definitions
-├── utils/         # JWT, hashing, error handling
-
-```
-
----
-
-## Setup & Run
-
-### 1. Clone
-
-```bash
+```bash id="q78t7k"
 git clone <repo>
 cd zorvyn-backend
 ```
 
 ---
 
-### 2. Environment
+## 2️⃣ Setup Environment
 
-Create `.env`:
+Create `.env` file:
 
-```env
+```env id="n1lygh"
 DATABASE_URL=postgres://user:password@localhost/zorvyn_db
 JWT_SECRET=your_secret_key
 ```
 
 ---
 
-### 3. Run
+## 3️⃣ Create Database
 
-```bash
+```bash id="9k7a5s"
+createdb zorvyn_db
+```
+
+---
+
+## 4️⃣ Run Migrations (SQLx)
+
+If using SQLx CLI:
+
+```bash id="d8m9rg"
+sqlx database create
+sqlx migrate run
+```
+
+> Ensure you have SQLx CLI installed:
+
+```bash id="dfn5g4"
+cargo install sqlx-cli --no-default-features --features postgres
+```
+
+---
+
+## 5️⃣ Seed Database
+
+```bash id="6j1p9c"
+psql $DATABASE_URL -f db/seed.sql
+```
+
+This will populate:
+
+* Users (viewer, analyst, admin)
+* Transactions across categories and dates
+
+---
+
+## 6️⃣ Run Server
+
+```bash id="ljj8sk"
 cargo run
 ```
 
-Server:
+Server runs at:
 
-```text
+```text id="o0pq6r"
 http://127.0.0.1:3000
 ```
 
 ---
 
-## Example
+## 🧪 Example Request
 
-```http
-GET /transactions?type=expense&limit=5&offset=0
+```http id="ch7l7o"
+GET /transactions?limit=5&offset=0
 Authorization: Bearer <token>
 ```
 
 ---
 
-## Trade-offs & Scope Decisions
+## 🌱 Seed Data Notes
 
-* No logging system integrated (kept scope focused)
-* No Swagger/OpenAPI (manual testing assumed)
-* No background jobs or async workers
-* Focus was on **correctness over feature overload**
+* Includes realistic financial data
+* Covers multiple categories
+* Time-distributed for trend testing
+* Useful for testing dashboard + filters
 
 ---
+
+## 🔐 Security
+
+* Argon2 password hashing
+* JWT-based auth
+* RBAC via middleware
+* Ownership enforced in queries
+
+---
+

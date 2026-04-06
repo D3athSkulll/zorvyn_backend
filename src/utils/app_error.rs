@@ -3,7 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use serde_json::{json,Value};
+use serde_json::{Value};
 
 #[derive(Debug)]
 pub struct AppError{

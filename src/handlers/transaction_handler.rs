@@ -15,7 +15,7 @@ use crate::{
     utils::{
         app_error::AppError,
         jwt::Claims,
-        response::{error,success,success_with_message},
+        response::{success},
         validation::format_validation_errors
     }
 };

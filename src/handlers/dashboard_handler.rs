@@ -5,7 +5,7 @@ use axum::{
 };
 use crate::{
     config::state::AppState,
-    utils::{app_error::AppError, jwt::Claims, response::{error,success,success_with_message}}
+    utils::{app_error::AppError, jwt::Claims, response::{success}}
 };
 use serde_json::{json,Value};
 use uuid::Uuid;

@@ -1,4 +1,4 @@
-use axum ::{Router, extract::State};
+use axum ::{Router,routing::{get}, extract::State};
 
 mod config;
 mod repositories;
@@ -11,7 +11,6 @@ mod middlewares;
 
 use config::db::connect_db;
 use config::state::AppState;
-use repositories::user_repo::create_user;
 use routes::user_routes::user_routes;
 use routes::transaction_routes::transaction_routes;
 use routes::dashboard_routes::dashboard_routes;
@@ -24,6 +23,7 @@ async fn main(){
     let state = AppState { db: pool };
 
     let app = Router::new()
+        .route("/", get(root))
         .merge(user_routes())
         .merge(transaction_routes())
         .merge(dashboard_routes())
@@ -37,17 +37,45 @@ async fn main(){
 
     axum::serve(listener, app).await.unwrap();
 
-    let user = create_user(
-    &state.db,
-    "Test",
-    "test@example.com",
-    "hashed_password",
-    "admin"
-    ).await.unwrap();
-
-    println!("User created: {:?}", user);
 }
 
 async fn root(State(state): State<AppState>)-> String{
-    format!("DB pool size: {}", state.db.size())
+    format!(
+r#"
+🚀 Zorvyn Finance Backend is running!
+
+📡 Server Info:
+- DB Pool Size: {}
+
+🔐 Auth Routes:
+POST   /register        → Create user
+POST   /login           → Login and get JWT
+
+👤 User (Admin + Analyst Only):
+GET    /users           → List users
+PATCH  /users/:id       → Update user role
+DELETE /users/:id       → Delete user
+
+💰 Transactions:
+POST   /transactions            → Create transaction
+GET    /transactions            → Get transactions (filters + pagination)
+PUT    /transactions/:id        → Update transaction
+DELETE /transactions/:id        → Delete transaction
+
+📊 Dashboard:
+GET    /dashboard       → Financial summary + trends
+
+🧪 Example:
+GET /transactions?limit=5&offset=0
+Authorization: Bearer <your_token>
+
+⚠️ Notes:
+- Use Bearer token for protected routes
+- Roles: viewer | analyst | admin
+- Analyst → cannot delete others' data
+- Admin → full access
+
+"#,
+        state.db.size()
+    )
 }
