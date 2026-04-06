@@ -4,7 +4,7 @@ use crate::{
     handlers::user_handler::{register_user, login_user, protected_route, admin_only},
     middlewares::{
         auth::auth_middleware,
-        role::require_role,
+        role::require_roles,
     }
 };
 
@@ -20,7 +20,7 @@ pub fn user_routes()-> Router<AppState>{
 
     let admin_routes = Router::new()
         .route("/admin-only", get(admin_only))
-        .layer(middleware::from_fn(require_role("admin")))
+        .layer(middleware::from_fn(require_roles(vec!["admin"])))
         .layer(middleware::from_fn(auth_middleware));
 
     public_routes

@@ -21,10 +21,7 @@ pub async fn get_dashboard(
             status: StatusCode::UNAUTHORIZED,
             body: json!({
                 "success": false,
-                "body": json!({
-                    "success": false,
-                    "message": "Invalid Token"
-                }) 
+                "message": "Invalid Token", 
             })
         }),
     };
@@ -73,17 +70,78 @@ pub async fn get_dashboard(
         })
         .collect();
 
-        Ok::<_, sqlx::Error>((income, expense, net_balance, categories))
+        //recent activity
+        let recent_rows = sqlx::query!(
+            r#"
+            SELECT id, amount, type, category, created_at
+            FROM transactions
+            WHERE user_id = $1
+            ORDER BY created_at DESC
+            LIMIT 5
+            "#,
+            user_id
+        )
+        .fetch_all(&state.db)
+        .await?;
 
+        let recent_activity: Vec<_> = recent_rows
+        .into_iter()
+        .map(|row| {
+          json!({
+               "id": row.id,
+                "amount": row.amount,
+                "type": row.r#type,
+                "category": row.category,
+                "created_at": row.created_at
+            })
+        })
+        .collect();
+
+        //monthly rows
+        let monthly_rows = sqlx::query!(
+            r#"
+            SELECT 
+                DATE_TRUNC('month', created_at) as month,
+                SUM(amount) as total
+            FROM transactions
+            WHERE user_id = $1
+            GROUP BY month
+            ORDER BY month
+            "#,
+            user_id
+        )
+        .fetch_all(&state.db)
+        .await?;
+
+        let monthly_trends: Vec<_> = monthly_rows
+        .into_iter()
+        .map(|row| {
+            json!({
+                "month": row.month,
+                "total": row.total.unwrap_or(0.0)
+            })
+        })
+        .collect();
+
+        Ok::<_, sqlx::Error>((
+        income,
+        expense,
+        net_balance,
+        categories,
+        recent_activity,
+        monthly_trends
+        ))
     }
     .await;
 
     match result {
-        Ok((income, expense, net_balance, categories))=> Ok(Json(success(json!({
+        Ok((income, expense, net_balance, categories, recent_activity, monthly_trends))=> Ok(Json(success(json!({
             "total_income": income,
             "total_expense": expense,
             "net_balance": net_balance,
-            "categories": categories    
+            "categories": categories,
+            "recent_activity": recent_activity,
+            "monthly_trends": monthly_trends,
         })))),
 
         Err(e)=>{
