@@ -29,3 +29,17 @@ pub struct TransactionQuery {
     pub start_date: Option<String>,
     pub end_date: Option<String>,
 }
+
+#[derive(Deserialize, Validate)]
+pub struct UpdateTransactionRequest {
+    #[validate(range(min = 0.01))]
+    pub amount: f64,
+
+    #[validate(custom(function = "validate_type"))]
+    pub r#type: String,
+
+    #[validate(length(min = 1))]
+    pub category: String,
+
+    pub description: Option<String>,
+}

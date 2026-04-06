@@ -1,5 +1,5 @@
 use axum::{
-    extract::{State, Json, Extension, Query},
+    extract::{State, Json, Extension, Query, Path},
     http::StatusCode,
 };
 use uuid::Uuid;
@@ -9,9 +9,9 @@ use validator::Validate;
 
 use crate::{
     config::state::AppState,
-    dto::transaction_dto::{CreateTransactionRequest, TransactionQuery},
+    dto::transaction_dto::{CreateTransactionRequest, TransactionQuery, UpdateTransactionRequest},
     models::transaction::Transaction,
-    repositories::transaction_repo::create_transaction,
+    repositories::transaction_repo::{create_transaction, update_transaction, delete_transaction},
     utils::{
         app_error::AppError,
         jwt::Claims,
@@ -157,4 +157,121 @@ pub async fn get_transactions(
         }
 
     }
+}
+
+pub async fn update_tx(
+    State(state): State<AppState>,
+    Extension(claims): Extension<Claims>,
+    Path(tx_id): Path<Uuid>,
+    Json(payload): Json<UpdateTransactionRequest>,
+)-> Result<Json<Value>, AppError>{
+
+    payload.validate().map_err(|errors| AppError {
+        status: StatusCode::BAD_REQUEST,
+        body: json!({
+            "success": false,
+            "message": "Invalid input",
+            "errors": errors.to_string()
+        }),
+    })?;
+
+    let user_id = claims.sub.parse::<Uuid>()
+        .map_err(|_| AppError {
+            status: StatusCode::UNAUTHORIZED,
+            body: json!({
+                "success": false,
+                "message": "Invalid token"
+            }),
+        })?;
+
+
+    let result = update_transaction(
+        &state.db,
+        tx_id,
+        user_id,
+        payload.amount,
+        &payload.r#type,
+        &payload.category,
+        payload.description.as_deref(),
+    )
+    .await;
+
+    match result{
+        Ok(tx)=> Ok(Json(success(json!(tx)))),
+        Err(e)=> if let sqlx::Error::RowNotFound = e {
+            Err(AppError{
+                status: StatusCode::NOT_FOUND,
+                body: json!({
+                    "success": false,
+                    "message": "Transaction Not Found or not owned by user"
+                })
+            })
+        } else{
+            Err(AppError {
+                status: StatusCode::INTERNAL_SERVER_ERROR,
+                body: json!({
+                    "success": false,
+                    "message": format!("{:?}", e)
+                })
+            })
+        },
+    }
+}
+
+pub async fn delete_tx(
+    State(state): State<AppState>,
+    Extension(claims): Extension<Claims>,
+    Path(tx_id): Path<Uuid>,
+)-> Result<Json<Value>, AppError>{
+
+    if claims.role != "admin"{
+        return Err(AppError{
+            status: StatusCode::FORBIDDEN,
+            body: json!({
+                "status": false,
+                "message": "You are not allowed to delete transactions."
+            })
+        })
+    }
+
+    let user_id = claims.sub.parse::<Uuid>()
+        .map_err(|_| AppError {
+            status: StatusCode::UNAUTHORIZED,
+            body: json!({
+                "success": false,
+                "message": "Invalid token"
+            }),
+        })?;
+
+    let result = delete_transaction(
+        &state.db,
+        tx_id,
+        user_id
+    )
+    .await;
+
+    match result{
+        Ok(tx)=> Ok(Json(success(json!({
+            "transaction": tx,
+            "message": "Transaction deleted successfully"
+        })))),
+        Err(e)=> if let sqlx::Error::RowNotFound=e{
+            Err(AppError{
+                status: StatusCode::NOT_FOUND,
+                body: json!({
+                    "status": false,
+                    "message": "Transaction not found or not owned by the user"
+                }),
+            })
+        } else{
+            Err(AppError{
+                status: StatusCode::INTERNAL_SERVER_ERROR,
+                body: json!({
+                    "status": false,
+                    "message": "Failed to delete transaction"
+                })
+            })
+        }
+    }
+    
 }

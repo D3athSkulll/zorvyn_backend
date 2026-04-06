@@ -28,3 +28,64 @@ pub async fn create_transaction(
 
     Ok(tx)
 }
+
+pub async fn update_transaction(
+    pool: &PgPool,
+    tx_id: Uuid,
+    user_id: Uuid,
+    amount: f64,
+    t_type: &str,
+    category: &str,
+    description: Option<&str>
+)-> Result<Transaction, sqlx::Error>{
+    
+    let tx = sqlx::query_as::<_,Transaction>(
+        r#"
+        UPDATE transactions
+        SET amount = $1,
+            type = $2,
+            category = $3,
+            description = $4
+        WHERE id = $5 AND user_id = $6
+        RETURNING *
+        "#
+    )
+    .bind(amount)
+    .bind(t_type)
+    .bind(category)
+    .bind(description)
+    .bind(tx_id)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?;
+
+    match tx{
+        Some(t)=> Ok(t),
+        None => Err(sqlx::Error::RowNotFound)
+    }
+
+}
+
+pub async fn delete_transaction(
+    pool: &PgPool,
+    tx_id: Uuid,
+    user_id: Uuid,
+) -> Result<Transaction, sqlx::Error> {
+
+    let tx = sqlx::query_as::<_, Transaction>(
+        r#"
+        DELETE FROM transactions
+        WHERE id = $1 AND user_id = $2
+        RETURNING *
+        "#
+    )
+    .bind(tx_id)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?;
+
+    match tx {
+        Some(t) => Ok(t),
+        None => Err(sqlx::Error::RowNotFound),
+    }
+}
