@@ -17,12 +17,12 @@ pub fn transaction_routes()-> Router<AppState>{
     // Analyst (POST + PUT)
     let analyst_routes = Router::new()
         .route("/transactions", post(create_tx))
-        .route("/transactions/:id", put(update_tx))
+        .route("/transactions/{id}", put(update_tx))
         .layer(middleware::from_fn(require_roles(vec!["analyst", "admin"])));
 
     // Admin (DELETE only)
     let admin_routes = Router::new()
-        .route("/transactions/:id", delete(delete_tx))
+        .route("/transactions/{id}", delete(delete_tx))
         .layer(middleware::from_fn(require_roles(vec!["admin"])));
 
     viewer_routes
