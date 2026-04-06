@@ -135,7 +135,16 @@ pub async fn get_transactions(
         qb.push_bind(end_date);
     }
 
+    //pagination
+    let limit = params.limit.unwrap_or(10);   // default 10
+    let offset = params.offset.unwrap_or(0); // default 0
+
     qb.push(" ORDER BY created_at DESC");
+    qb.push(" LIMIT ");
+    qb.push_bind(limit);
+
+    qb.push(" OFFSET ");
+    qb.push_bind(offset);
 
     let result = qb
         .build_query_as::<Transaction>()
@@ -143,7 +152,15 @@ pub async fn get_transactions(
         .await;
 
     match result{
-        Ok(txs)=>Ok(Json(success(json!(txs)))),
+        Ok(txs)=>Ok(Json(success(json!({
+            "transactions": txs,
+            "pagination": {
+                "limit": limit,
+                "offset": offset,
+                "count": txs.len(),
+            }
+
+        })))),
 
         Err(e)=>{
             println!("DB error: {:?}", e);

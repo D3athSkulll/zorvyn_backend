@@ -28,6 +28,9 @@ pub struct TransactionQuery {
     pub category: Option<String>,
     pub start_date: Option<String>,
     pub end_date: Option<String>,
+
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
 }
 
 #[derive(Deserialize, Validate)]
