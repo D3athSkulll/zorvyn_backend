@@ -1,5 +1,6 @@
 use jsonwebtoken::{encode, EncodingKey, Header, decode, DecodingKey, Validation};
 use serde::{Serialize, Deserialize};
+use std::env;
 
 #[derive(Clone,Serialize, Deserialize)]
 pub struct Claims{
@@ -10,6 +11,7 @@ pub struct Claims{
 }
 
 pub fn generate_token(user_id: &str, email: &str, role: &str) -> String{
+    
     let claims = Claims{
         sub: user_id.to_string(),
         email: email.to_string(),
@@ -17,18 +19,24 @@ pub fn generate_token(user_id: &str, email: &str, role: &str) -> String{
         exp: 2000000000, //temporary
     };
 
+    let secret = env::var("JWT_SECRET")
+    .expect("JWT_SECRET must be set");
+
     encode(
         &Header::default(),
         &claims,
-        &EncodingKey::from_secret("secret".as_ref()),
+        &EncodingKey::from_secret(secret.as_ref()),
     )
     .unwrap()
 }
 
 pub fn decode_token(token: &str) -> Result<Claims, jsonwebtoken::errors::Error>{
+    let secret = env::var("JWT_SECRET")
+    .expect("JWT_SECRET must be set");
+
     let data = decode::<Claims>(
         token,
-        &DecodingKey::from_secret("secret".as_ref()),
+        &DecodingKey::from_secret(secret.as_ref()),
         &Validation::default(),
     )?;
 
