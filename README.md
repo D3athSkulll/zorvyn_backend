@@ -1,4 +1,4 @@
-# 💼 Zorvyn Finance Backend
+# 💼 Fintech Dashboard Backend
 
 A role-based finance backend built using **Rust + Axum + PostgreSQL**, designed to demonstrate clean backend architecture, secure access control, and meaningful data processing.
 
